@@ -1,6 +1,7 @@
 export type TaskStatus =
   | 'pending'
   | 'processing'
+  | 'succeeded'
   | 'failed';
 
 export type Task = {

@@ -12,20 +12,25 @@ class TaskEngine {
     private networkSubscribers: NetworkSubscriber[] = [];
     private processing = false;
 
-    // Initialize: load tasks & subscribe to network changes
     async init() {
         this.tasks = await loadTasks();
         this.notify();
 
         onNetworkChange((online) => {
-            
-            this.online = online;
-            this.notifyNetwork();
-            if (online) this.processQueue();
+            if (this.online !== online) {
+                this.online = online;
+                this.notifyNetwork();
+
+                if (online) {
+                    console.log('Network online, processing queue...');
+                    this.processQueue();
+                } else {
+                    console.log('Network offline, queue paused.');
+                }
+            }
         });
     }
 
-    // Subscribe UI to task changes
     subscribe(fn: Subscriber) {
         this.subscribers.push(fn);
         fn([...this.tasks]);
@@ -34,7 +39,6 @@ class TaskEngine {
         };
     }
 
-    // Subscribe UI to network changes
     subscribeNetwork(fn: NetworkSubscriber) {
         this.networkSubscribers.push(fn);
         fn(this.online);
@@ -57,17 +61,13 @@ class TaskEngine {
         await saveTasks(this.tasks);
         this.notify();
 
-        if (this.online) {
-            this.processQueue();
-        }
+        if (this.online) this.processQueue();
     }
 
     async processQueue() {
         if (this.processing) return;
-        if (!this.online) {
-            console.log('Cannot process queue: offline');
-            return;
-        }
+        if (!this.online) return;
+
         this.processing = true;
 
         for (const task of this.tasks) {
@@ -81,8 +81,7 @@ class TaskEngine {
                 this.tasks = this.tasks.filter(t => t.id !== task.id);
             } catch {
                 task.retries++;
-                task.status =
-                    task.retries >= task.maxRetries ? 'failed' : 'pending';
+                task.status = task.retries >= task.maxRetries ? 'failed' : 'pending';
             }
 
             await saveTasks(this.tasks);
@@ -93,10 +92,8 @@ class TaskEngine {
     }
 
     private async execute(task: Task) {
-        // simulate API call
         await new Promise(res => setTimeout(res, 2000));
 
-        // simulate failure 30% of the time
         if (Math.random() < 0.3) {
             throw new Error('Simulated failure');
         }
